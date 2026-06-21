@@ -1,0 +1,7 @@
+zsh
+cachyos-zsh-config
+zsh-theme-powerlevel10k
+docker
+docker-compose
+docker-buildx
+zoxide

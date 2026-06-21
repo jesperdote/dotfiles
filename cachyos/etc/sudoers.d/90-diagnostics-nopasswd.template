@@ -1,0 +1,1 @@
+__USER__ ALL=(root) NOPASSWD: /usr/bin/dmesg, /usr/bin/journalctl, /usr/bin/evtest, /usr/bin/libinput
