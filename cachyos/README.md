@@ -106,6 +106,40 @@ hung, instead of leaving nothing to investigate. Check `cat /proc/sys/kernel/wat
 and `cat /proc/sys/kernel/nmi_watchdog` both read `1` to confirm both are active - a
 future CachyOS update could silently reset the sysctl default again.
 
+### Root cause found (2026-07-25): Raydium touchscreen resume crash
+
+The watchdog fix above paid off immediately - the very next freeze left a full trace.
+Sequence of events from the kernel log:
+
+1. System suspends (s2idle) after the screen locks/idles.
+2. On resume, the Raydium touchscreen driver's IRQ handler
+   (`raydium_i2c_irq` in `raydium_i2c_ts`) fires before its internal state is fully
+   re-initialized post-resume, and NULL-pointer-dereferences.
+3. That crash cascades into a second, more severe fault (a CET/control-flow-integrity
+   violation) while the kernel tries to clean up the crashed thread.
+4. The kernel explicitly logs `Fixing recursive fault but reboot is needed!` - at that
+   point it has already given up on recovering.
+5. Everything after is the system limping in a degraded state: Bluetooth and WiFi
+   actually reconnect fine at the kernel level (explains music briefly stopping then
+   the Bluetooth headset re-pairing), but the display/graphics session never recovers,
+   hence the black screen requiring a forced shutdown.
+
+This is a known bug class, not specific to this machine - other users hit the same
+`raydium_i2c_irq` NULL pointer crash on resume (see
+[Arch Forums report](https://bbs.archlinux.org/viewtopic.php?id=292611)). There's a
+known upstream patch for a related Raydium resume issue
+([linux-input ML](https://www.spinics.net/lists/linux-input/msg56023.html)), but it's
+not confirmed present in this kernel build, and reproducing/verifying a kernel patch
+wasn't worth it over the simpler fix below.
+
+**Fix**: `install.sh` blacklists `raydium_i2c_ts` entirely (`etc/modprobe.d` isn't a
+directory this repo manages elsewhere yet, so the file is written directly, not
+templated - no personal data involved). This fully removes the touchscreen as a
+feature on this machine, in exchange for eliminating this crash class. Confirmed
+before applying: the kernel trace itself proves the driver was actively loaded and
+receiving real interrupts at the moment of the crash, regardless of any BIOS-level
+touch toggle - so blacklisting is a real fix, not a redundant no-op.
+
 ## Magic Trackpad + three-finger drag (Bluetooth, hardware-specific)
 
 An Apple Magic Trackpad is paired over Bluetooth for macOS-style multitouch. Two

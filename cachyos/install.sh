@@ -86,6 +86,20 @@ else
     echo "    Skipped (already installed)"
 fi
 
+echo "==> Blacklisting raydium_i2c_ts (Raydium touchscreen resume crash)"
+echo "    Known kernel bug: this driver's IRQ handler NULL-pointer-dereferences on"
+echo "    s2idle resume, cascading into a CET violation and an unrecoverable kernel"
+echo "    state (silent freeze - black screen, no lockup logged prior to the watchdog"
+echo "    fix above). See README.md for the full crash trace and diagnosis."
+BLACKLIST_FILE=/etc/modprobe.d/blacklist-raydium.conf
+if [[ ! -f "$BLACKLIST_FILE" ]]; then
+    echo "blacklist raydium_i2c_ts" | sudo tee "$BLACKLIST_FILE" > /dev/null
+    sudo rmmod raydium_i2c_ts 2>/dev/null || true
+    echo "    Blacklisted and unloaded (touchscreen input is lost, by design)"
+else
+    echo "    Skipped (already blacklisted)"
+fi
+
 echo "==> Magic Trackpad three-finger drag (Bluetooth)"
 echo "    Bluetooth-connected input devices go through the kernel's uhid subsystem, so"
 echo "    /dev/input/eventN changes on every reconnect. These udev rules key off the"
