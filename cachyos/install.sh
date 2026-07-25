@@ -55,6 +55,77 @@ else
     echo "    Skipped (no Limine config found, or already applied)"
 fi
 
+echo "==> Freeze diagnostics: re-enabling kernel lockup watchdogs"
+echo "    nowatchdog (kernel cmdline) and kernel.nmi_watchdog=0 (CachyOS's own sysctl"
+echo "    default) both disable lockup detection - either alone is enough to leave a"
+echo "    hang with zero diagnostic trail. See README.md for how this was found."
+if [[ -f "$LIMINE_CONF" ]] && grep -q "nowatchdog" "$LIMINE_CONF"; then
+    sudo sed -i 's/ nowatchdog//' "$LIMINE_CONF"
+    sudo limine-update
+    echo "    Removed nowatchdog - reboot for it to take effect"
+else
+    echo "    Skipped (no Limine config found, or already removed)"
+fi
+SYSCTL_WATCHDOG=/etc/sysctl.d/99-nmi-watchdog-enable.conf
+if [[ ! -f "$SYSCTL_WATCHDOG" ]]; then
+    sudo cp etc/sysctl.d/99-nmi-watchdog-enable.conf "$SYSCTL_WATCHDOG"
+    sudo sysctl --system > /dev/null
+    echo "    Re-enabled kernel.nmi_watchdog via $SYSCTL_WATCHDOG"
+else
+    echo "    Skipped (already installed)"
+fi
+
+echo "==> Magic Trackpad three-finger drag (Bluetooth)"
+echo "    Bluetooth-connected input devices go through the kernel's uhid subsystem, so"
+echo "    /dev/input/eventN changes on every reconnect. These udev rules key off the"
+echo "    trackpad's own Bluetooth address instead, so downstream config can use a"
+echo "    stable path. See README.md for the values below and full rationale."
+MAGIC_RULE=/etc/udev/rules.d/70-magic-trackpad-bt.rules
+if [[ ! -f "$MAGIC_RULE" ]]; then
+    sed -e "s/__TRACKPAD_UNIQ__/08:65:18:ba:b6:7b/" \
+        -e "s/__TRACKPAD_VENDOR__/004c/" \
+        -e "s/__TRACKPAD_PRODUCT__/0265/" \
+        etc/udev/rules.d/70-magic-trackpad-bt.rules.template | sudo tee "$MAGIC_RULE" > /dev/null
+    sudo udevadm control --reload-rules
+    echo "    Installed $MAGIC_RULE"
+else
+    echo "    Skipped (already installed)"
+fi
+HOTPLUG_RULE=/etc/udev/rules.d/61-hotplug.rules
+if [[ ! -f "$HOTPLUG_RULE" ]]; then
+    sed -e "s/__TRACKPAD_UNIQ__/08:65:18:ba:b6:7b/" \
+        -e "s/__TRACKPAD_VENDOR__/004c/" \
+        -e "s/__TRACKPAD_PRODUCT__/0265/" \
+        -e "s/__USER__/$USER/" \
+        etc/udev/rules.d/61-hotplug.rules.template | sudo tee "$HOTPLUG_RULE" > /dev/null
+    sudo udevadm control --reload-rules
+    echo "    Installed $HOTPLUG_RULE"
+else
+    echo "    Skipped (already installed)"
+fi
+
+TFD_SRC="$HOME/src/linux-3-finger-drag"
+if [[ -d "$TFD_SRC/.git" ]]; then
+    git -C "$TFD_SRC" pull
+else
+    mkdir -p "$(dirname "$TFD_SRC")"
+    git clone https://github.com/jesperdote/linux-3-finger-drag.git "$TFD_SRC"
+fi
+chmod +x "$TFD_SRC/install.sh"  # not committed with the executable bit set
+cat <<'EOF'
+    Repo cloned/updated at ~/src/linux-3-finger-drag.
+
+    NOT built/installed automatically (needs Rust, its own sudo-gated installer,
+    and a reboot for group membership). Steps, in order:
+
+      1. rustup default stable   # if Rust isn't set up yet
+      2. cd ~/src/linux-3-finger-drag && sudo ./install.sh
+      3. Edit ~/.config/systemd/user/three-finger-drag.service's ExecStart to add
+         "--device /dev/input/magic-trackpad-bt-event" - this machine has 2
+         touchpads, and auto-discovery picks the built-in one instead.
+      4. systemctl --user daemon-reload && systemctl --user restart three-finger-drag.service
+EOF
+
 echo "==> Toshy (macOS-style keybinding remapper)"
 TOSHY_SRC="$HOME/.local/src/toshy"
 if [[ -d "$TOSHY_SRC/.git" ]]; then
@@ -85,4 +156,8 @@ cat <<'EOF'
     `toshy-devices` to find your keyboard's device name and add it to the Toshy config
   - Tap-to-click: defaults to OFF on a fresh install anyway (matches the current setting),
     enable in System Settings -> Input Devices -> Touchpad if you want it on
+  - Magic Trackpad Bluetooth pairing: won't complete while a charging cable is plugged in
+    (falls back to wired USB HID instead). Unplug it, toggle the trackpad's power switch
+    off/on to re-enter pairing mode, then `bluetoothctl pair/trust/connect <mac>`.
+  - linux-3-finger-drag build/install/service wiring: see the printed steps above
 EOF
