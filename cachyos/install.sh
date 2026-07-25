@@ -40,6 +40,17 @@ if ! grep -q "zoxide init zsh" ~/.zshrc 2>/dev/null; then
     cat zsh/zoxide.zsh >> ~/.zshrc
 fi
 
+echo "==> Power button locks screen (macOS-style), instead of the sleep/shutdown prompt"
+echo "    32 = PowerDevil::PowerButtonAction::LockScreen (see README.md for the full enum)."
+if [[ "$(kreadconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerButtonAction)" != "32" ]]; then
+    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerButtonAction 32
+    kwriteconfig6 --file powerdevilrc --group Battery --group SuspendAndShutdown --key PowerButtonAction 32
+    echo "    Applied - takes effect on next login, or restart powerdevil now:"
+    echo "        kquitapp6 org_kde_powerdevil; nohup /usr/lib/org_kde_powerdevil >/dev/null 2>&1 & disown"
+else
+    echo "    Skipped (already set)"
+fi
+
 echo "==> Touchpad fix: psmouse.synaptics_intertouch=1 (ThinkPad T14 Gen2 Synaptics palm-rejection bug)"
 echo "    Only relevant on the same hardware - switches the touchpad from legacy PS/2"
 echo "    emulation to native RMI4/SMBus, fixing phantom cursor movement during palm contact."

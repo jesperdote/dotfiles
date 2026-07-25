@@ -41,6 +41,28 @@ The full `~/.zshrc` and `~/.p10k.zsh` aren't backed up here since they're partly
 machine-generated (`p10k configure` regenerates `.p10k.zsh` interactively) - only the
 zoxide line that was manually added is captured in `zsh/zoxide.zsh`.
 
+## Power button locks screen (macOS-style)
+
+By default KDE's power button either sleeps or shows a shutdown prompt. `install.sh` sets
+it to lock the screen instead (like tapping the power button on a MacBook), via
+`kwriteconfig6 --file powerdevilrc --group <AC|Battery> --group SuspendAndShutdown --key
+PowerButtonAction 32`. `32` isn't arbitrary - it's `PowerDevil::PowerButtonAction::LockScreen`
+from [powerdevil's enum](https://github.com/KDE/powerdevil/blob/master/daemon/powerdevilenums.h):
+`NoAction=0, Sleep=1, Hibernate=2, Shutdown=8, PromptLogoutDialog=16, LockScreen=32,
+TurnOffScreen=64, ToggleScreenOnOff=128`. No GUI option needed to change it further - System
+Settings -> Power Management -> Button Events has the same dropdown if you want a different
+action later.
+
+Takes effect on next login; to apply immediately without logging out, restart the
+`powerdevil` kded module (it doesn't reliably auto-respawn after being killed, so relaunch
+it explicitly):
+
+```bash
+kquitapp6 org_kde_powerdevil
+nohup /usr/lib/org_kde_powerdevil >/dev/null 2>&1 &
+disown
+```
+
 ## Touchpad fix (hardware-specific)
 
 This ThinkPad's Synaptics touchpad (`LEN2072`) defaults to legacy PS/2 emulation, which
