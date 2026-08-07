@@ -22,6 +22,7 @@ ships `paru` by default.
 | `etc/sysctl.d/99-nmi-watchdog-enable.conf` | Re-enables the NMI hardlockup watchdog that CachyOS disables by default |
 | `etc/udev/rules.d/70-magic-trackpad.rules.template` | Stable symlink for the Magic Trackpad regardless of Bluetooth vs USB connection |
 | `etc/udev/rules.d/61-hotplug.rules.template` | Restarts the three-finger-drag service the instant the trackpad (re)connects, either connection |
+| `etc/systemd/system-sleep/90-trackpad-resume-fix.sh` | Rebinds the touchpad and restarts Toshy on every resume, fixing a dead-touchpad-after-suspend bug |
 | `zsh/zoxide.zsh` | Appended to `~/.zshrc` - makes `cd` use zoxide's fuzzy directory jumping |
 | `install.sh` | Ties it all together |
 
@@ -81,6 +82,49 @@ similar issue shows up on different hardware: capture raw events with `evtest` o
 touchpad's `/dev/input/eventN` node, check `dmesg | grep -i synaptics` for protocol/reset
 info, and look for `ABS_MT_SLOT` value 1 (second contact point) coinciding with
 discontinuous jumps in `ABS_X`/`ABS_Y`.
+
+## Touchpad/TrackPoint resume fix (systemd-sleep hook, hardware-specific)
+
+Recurring bug (first hit 2026-08-07): after resuming from suspend (closing the lid,
+locking, then reopening), the built-in touchpad and TrackPoint go completely dead - both
+still show up in `/proc/bus/input/devices` and `evtest` opens their device nodes fine, but
+zero events or kernel interrupts are ever generated, no matter how much you tap/click.
+Two separate, compounding causes:
+
+1. **RMI4/SMBus transport doesn't re-init on resume.** The touchpad's kernel log line
+   (`psmouse serio1: synaptics: Trying to set up SMBus access`) only ever appears once, at
+   boot - never again after a resume, even though the input device object is still there
+   (a stale zombie). Confirmed via `/proc/interrupts`: the `rmi4-*.fn12` (2D sensor)
+   interrupt count doesn't move at all while actively tapping. Fix: rebind the `psmouse`
+   driver on `serio1` (the i8042 AUX port) to force it to redo that handshake:
+   ```bash
+   echo -n "serio1" | sudo tee /sys/bus/serio/drivers/psmouse/unbind
+   echo -n "serio1" | sudo tee /sys/bus/serio/drivers/psmouse/bind
+   ```
+2. **Toshy's `xwaykeyz` can end up with a stale exclusive grab.** Toshy's config service
+   auto-grabs "all keyboards" at startup/hotplug, which in practice sweeps up pointer
+   devices too (confirmed via `ls -la /proc/<xwaykeyz-pid>/fd`, which had the touchpad's
+   and TrackPoint's `/dev/input/eventN` open). Its own log shows `BrokenPipeError` /
+   `"Device may be in transition (KVM switch?)"` retries when it tries to (re-)grab a
+   device mid-resume, before fix #1 above has actually run. Linux's `EVIOCGRAB` means a
+   process holding a broken/stale grab silently blackholes input for every other listener,
+   including the compositor - which is why `evtest` also saw nothing. Only killing and
+   restarting the service clears it (confirmed empirically: a full logout/login, which
+   respawns `toshy-config.service` fresh, restored the touchpad even though the driver
+   rebind alone had not).
+
+**Fix**: `etc/systemd/system-sleep/90-trackpad-resume-fix.sh`, installed to
+`/usr/lib/systemd/system-sleep/` by `install.sh`, runs automatically after every resume
+(`systemd-sleep` hooks get `$1=post $2=suspend` from `systemd-logind`) and does both
+repairs in order: a short `sleep 2` to let the SMBus controller finish resuming, the
+`psmouse` rebind, then `systemctl --user restart toshy-config.service` for whichever user
+owns the `seat0` session (found via `loginctl`, not hardcoded - root can't run `--user`
+systemctl without explicitly pointing `XDG_RUNTIME_DIR` at that user's runtime dir).
+
+Only relevant if you're setting up the same physical hardware and running Toshy. If a
+similar dead-touchpad-after-resume symptom shows up without Toshy installed, cause #1
+alone may already be enough - check `/proc/interrupts` for the `rmi4-*.fn12` line before
+assuming cause #2 also applies.
 
 ## Freeze diagnostics: kernel lockup watchdogs
 

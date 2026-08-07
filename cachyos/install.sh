@@ -66,6 +66,22 @@ else
     echo "    Skipped (no Limine config found, or already applied)"
 fi
 
+echo "==> Touchpad/TrackPoint resume fix (systemd-sleep hook)"
+echo "    The touchpad's RMI4/SMBus transport doesn't always re-init after suspend,"
+echo "    leaving the touchpad and TrackPoint enumerated but dead, and Toshy's"
+echo "    xwaykeyz can end up with a stale exclusive grab if it re-detects devices"
+echo "    mid-resume. This hook rebinds psmouse and restarts toshy-config.service"
+echo "    automatically on every resume. See README.md for the full diagnosis."
+SLEEP_HOOK_DEST=/usr/lib/systemd/system-sleep/90-trackpad-resume-fix.sh
+SLEEP_HOOK_SRC=etc/systemd/system-sleep/90-trackpad-resume-fix.sh
+if [[ ! -f "$SLEEP_HOOK_DEST" ]] || ! cmp -s "$SLEEP_HOOK_SRC" "$SLEEP_HOOK_DEST"; then
+    sudo cp "$SLEEP_HOOK_SRC" "$SLEEP_HOOK_DEST"
+    sudo chmod 0755 "$SLEEP_HOOK_DEST"
+    echo "    Installed $SLEEP_HOOK_DEST"
+else
+    echo "    Skipped (already up to date)"
+fi
+
 echo "==> Freeze diagnostics: re-enabling kernel lockup watchdogs"
 echo "    nowatchdog (kernel cmdline) and kernel.nmi_watchdog=0 (CachyOS's own sysctl"
 echo "    default) both disable lockup detection - either alone is enough to leave a"
