@@ -1,7 +1,0 @@
-# Creates a stable /dev/input/magic-trackpad-bt-event symlink for the
-# Bluetooth-connected Apple Magic Trackpad, so linux-3-finger-drag's
-# --device flag can point at a path that survives reconnects. Bluetooth
-# HID devices are exposed via the kernel's uhid subsystem, so their
-# /dev/input/eventN changes every time the device reconnects, and (unlike
-# USB) they get no /dev/input/by-id/ symlink by default.
-SUBSYSTEM=="input", KERNEL=="event*", ATTRS{uniq}=="__TRACKPAD_UNIQ__", ATTRS{id/vendor}=="__TRACKPAD_VENDOR__", ATTRS{id/product}=="__TRACKPAD_PRODUCT__", SYMLINK+="input/magic-trackpad-bt-event"

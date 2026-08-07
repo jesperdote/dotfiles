@@ -100,34 +100,51 @@ else
     echo "    Skipped (already blacklisted)"
 fi
 
-echo "==> Magic Trackpad three-finger drag (Bluetooth)"
+echo "==> Magic Trackpad three-finger drag (Bluetooth + USB)"
 echo "    Bluetooth-connected input devices go through the kernel's uhid subsystem, so"
-echo "    /dev/input/eventN changes on every reconnect. These udev rules key off the"
-echo "    trackpad's own Bluetooth address instead, so downstream config can use a"
-echo "    stable path. See README.md for the values below and full rationale."
-MAGIC_RULE=/etc/udev/rules.d/70-magic-trackpad-bt.rules
-if [[ ! -f "$MAGIC_RULE" ]]; then
-    sed -e "s/__TRACKPAD_UNIQ__/08:65:18:ba:b6:7b/" \
-        -e "s/__TRACKPAD_VENDOR__/004c/" \
-        -e "s/__TRACKPAD_PRODUCT__/0265/" \
-        etc/udev/rules.d/70-magic-trackpad-bt.rules.template | sudo tee "$MAGIC_RULE" > /dev/null
-    sudo udevadm control --reload-rules
-    echo "    Installed $MAGIC_RULE"
-else
-    echo "    Skipped (already installed)"
+echo "    /dev/input/eventN changes on every reconnect; USB exposes the trackpad as two"
+echo "    HID interfaces with identical vendor/product/serial. These udev rules key off"
+echo "    the trackpad's Bluetooth address and USB serial (plus interface number for"
+echo "    USB) instead, so downstream config can use one stable path either way. See"
+echo "    README.md for the values below and full rationale."
+TRACKPAD_RENDER_ARGS=(
+    -e "s/__TRACKPAD_UNIQ__/08:65:18:ba:b6:7b/"
+    -e "s/__TRACKPAD_VENDOR__/004c/"
+    -e "s/__TRACKPAD_PRODUCT__/0265/"
+    -e "s/__TRACKPAD_USB_UNIQ__/CC2305200Q90YWTA4/"
+    -e "s/__TRACKPAD_USB_VENDOR__/05ac/"
+    -e "s/__TRACKPAD_USB_PRODUCT__/0265/"
+)
+
+# Renders to a temp file and compares content rather than just checking the
+# destination exists, so edits to the template (e.g. adding USB support)
+# reach machines that already had an older version installed.
+install_udev_rule() {
+    local template="$1" dest="$2"
+    shift 2
+    local tmp
+    tmp="$(mktemp)"
+    sed "$@" "$template" > "$tmp"
+    if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
+        echo "    Skipped (already up to date)"
+        rm "$tmp"
+    else
+        sudo cp "$tmp" "$dest"
+        rm "$tmp"
+        sudo udevadm control --reload-rules
+        echo "    Installed $dest"
+    fi
+}
+
+OLD_MAGIC_RULE=/etc/udev/rules.d/70-magic-trackpad-bt.rules
+if [[ -f "$OLD_MAGIC_RULE" ]]; then
+    sudo rm "$OLD_MAGIC_RULE"
+    echo "    Removed superseded $OLD_MAGIC_RULE (renamed, now covers USB too)"
 fi
-HOTPLUG_RULE=/etc/udev/rules.d/61-hotplug.rules
-if [[ ! -f "$HOTPLUG_RULE" ]]; then
-    sed -e "s/__TRACKPAD_UNIQ__/08:65:18:ba:b6:7b/" \
-        -e "s/__TRACKPAD_VENDOR__/004c/" \
-        -e "s/__TRACKPAD_PRODUCT__/0265/" \
-        -e "s/__USER__/$USER/" \
-        etc/udev/rules.d/61-hotplug.rules.template | sudo tee "$HOTPLUG_RULE" > /dev/null
-    sudo udevadm control --reload-rules
-    echo "    Installed $HOTPLUG_RULE"
-else
-    echo "    Skipped (already installed)"
-fi
+install_udev_rule etc/udev/rules.d/70-magic-trackpad.rules.template \
+    /etc/udev/rules.d/70-magic-trackpad.rules "${TRACKPAD_RENDER_ARGS[@]}"
+install_udev_rule etc/udev/rules.d/61-hotplug.rules.template \
+    /etc/udev/rules.d/61-hotplug.rules "${TRACKPAD_RENDER_ARGS[@]}" -e "s/__USER__/$USER/"
 
 TFD_SRC="$HOME/src/linux-3-finger-drag"
 if [[ -d "$TFD_SRC/.git" ]]; then
@@ -146,8 +163,9 @@ cat <<'EOF'
       1. rustup default stable   # if Rust isn't set up yet
       2. cd ~/src/linux-3-finger-drag && sudo ./install.sh
       3. Edit ~/.config/systemd/user/three-finger-drag.service's ExecStart to add
-         "--device /dev/input/magic-trackpad-bt-event" - this machine has 2
-         touchpads, and auto-discovery picks the built-in one instead.
+         "--device /dev/input/magic-trackpad-event" - this machine has 2
+         touchpads, and auto-discovery picks the built-in one instead. This path
+         works whether the trackpad is connected over Bluetooth or USB.
       4. systemctl --user daemon-reload && systemctl --user restart three-finger-drag.service
 EOF
 

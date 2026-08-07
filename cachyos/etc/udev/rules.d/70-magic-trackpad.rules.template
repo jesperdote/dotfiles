@@ -1,0 +1,19 @@
+# Creates a stable /dev/input/magic-trackpad-event symlink for the Apple
+# Magic Trackpad, whether it's connected over Bluetooth or USB.
+#
+# Bluetooth HID devices go through the kernel's uhid subsystem, so their
+# /dev/input/eventN changes every reconnect, and (unlike USB) they get no
+# /dev/input/by-id/ symlink by default.
+#
+# USB does get a stable by-id symlink already, but the trackpad exposes
+# itself as *two* USB HID interfaces (0 and 1) with identical
+# ATTRS{uniq}/id/vendor/id/product - only interface 1 is the real multitouch
+# device libinput uses (confirmed via `libinput list-devices`; interface 0
+# is unused). ENV{ID_USB_INTERFACE_NUM} (already resolved by earlier stock
+# udev rules, e.g. the by-id symlink's "-if01-" suffix) picks out that
+# specific interface. Note this must be ENV, not KERNELS matching the ":1.1"
+# ancestor node - KERNELS and ATTRS in one rule have to match the *same*
+# device while walking up the chain, and there's no single ancestor that has
+# both the ":1.1" kernel name and the uniq/vendor/product attributes.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{uniq}=="__TRACKPAD_UNIQ__", ATTRS{id/vendor}=="__TRACKPAD_VENDOR__", ATTRS{id/product}=="__TRACKPAD_PRODUCT__", SYMLINK+="input/magic-trackpad-event"
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_USB_INTERFACE_NUM}=="01", ATTRS{uniq}=="__TRACKPAD_USB_UNIQ__", ATTRS{id/vendor}=="__TRACKPAD_USB_VENDOR__", ATTRS{id/product}=="__TRACKPAD_USB_PRODUCT__", SYMLINK+="input/magic-trackpad-event"

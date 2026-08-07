@@ -20,8 +20,8 @@ ships `paru` by default.
 | `aur-packages.txt` | AUR packages (visual-studio-code-bin, yay) |
 | `etc/sudoers.d/90-diagnostics-nopasswd.template` | Passwordless sudo for read-only diagnostic tools (dmesg, journalctl, evtest, libinput) only - no install/modify commands |
 | `etc/sysctl.d/99-nmi-watchdog-enable.conf` | Re-enables the NMI hardlockup watchdog that CachyOS disables by default |
-| `etc/udev/rules.d/70-magic-trackpad-bt.rules.template` | Stable symlink for the Bluetooth Magic Trackpad (its `/dev/input/eventN` changes every reconnect) |
-| `etc/udev/rules.d/61-hotplug.rules.template` | Restarts the three-finger-drag service the instant the trackpad reconnects |
+| `etc/udev/rules.d/70-magic-trackpad.rules.template` | Stable symlink for the Magic Trackpad regardless of Bluetooth vs USB connection |
+| `etc/udev/rules.d/61-hotplug.rules.template` | Restarts the three-finger-drag service the instant the trackpad (re)connects, either connection |
 | `zsh/zoxide.zsh` | Appended to `~/.zshrc` - makes `cd` use zoxide's fuzzy directory jumping |
 | `install.sh` | Ties it all together |
 
@@ -140,15 +140,16 @@ before applying: the kernel trace itself proves the driver was actively loaded a
 receiving real interrupts at the moment of the crash, regardless of any BIOS-level
 touch toggle - so blacklisting is a real fix, not a redundant no-op.
 
-## Magic Trackpad + three-finger drag (Bluetooth, hardware-specific)
+## Magic Trackpad + three-finger drag (Bluetooth + USB, hardware-specific)
 
-An Apple Magic Trackpad is paired over Bluetooth for macOS-style multitouch. Two
-quirks worth knowing if this breaks after a reinstall or a new pairing:
+An Apple Magic Trackpad is paired over Bluetooth for macOS-style multitouch, and also
+works over USB (e.g. while charging) since three-finger-drag follows either connection -
+see below. Quirks worth knowing if this breaks after a reinstall or a new pairing:
 
-- **Won't pair while a cable is plugged in.** Magic Trackpads fall back to acting as a
-  wired USB HID device whenever a cable is connected (charging or otherwise), and won't
-  complete Bluetooth pairing in that state - unplug it first, then toggle the power
-  switch off/on to re-enter pairing mode.
+- **Won't pair over Bluetooth while a cable is plugged in.** Magic Trackpads fall back to
+  acting as a wired USB HID device whenever a cable is connected (charging or otherwise),
+  and won't complete Bluetooth pairing in that state - unplug it first, then toggle the
+  power switch off/on to re-enter pairing mode.
 - **Invisible in System Settings.** KDE's Mouse/Touchpad pages never list it - KWin's own
   D-Bus `InputDevice` object flags it `isVirtual: true`, because Bluetooth HID devices
   are injected via the kernel's `uhid` subsystem, putting their sysfs path under
@@ -156,6 +157,18 @@ quirks worth knowing if this breaks after a reinstall or a new pairing:
   being hidden from the GUI (confirmed via
   `busctl --user introspect org.kde.KWin /org/kde/KWin/InputDevice/eventN`). This likely
   affects any Bluetooth mouse/touchpad on this machine, not just this one.
+- **USB exposes two identical-looking HID interfaces.** Plugged in via cable, the
+  trackpad enumerates as *two* `/dev/input/eventN` nodes with the same
+  `ATTRS{uniq}`/`id/vendor`/`id/product` (only differing in which USB interface number
+  they hang off). Only interface 1 is the real multitouch device libinput actually uses
+  (verified with `libinput list-devices`) - interface 0 is present but unused. The udev
+  rules below disambiguate with `ENV{ID_USB_INTERFACE_NUM}=="01"` - not `KERNELS=="*:1.1"`,
+  which looks like the obvious choice but silently never matches: `KERNELS` and `ATTRS` in
+  one rule must both match the *same* device while walking up the chain, and no single
+  ancestor has both the `:1.1` kernel name and the uniq/vendor/product attributes.
+  `ID_USB_INTERFACE_NUM` is a property already resolved onto the device itself by earlier
+  stock udev rules (same source as the `-if01-` suffix on the default by-id symlink), so
+  it works as a plain `ENV{}` match with no ancestor-walk issue.
 
 KDE/KWin doesn't expose a native three-finger-*drag* toggle (only tap-and-drag, which is
 a different gesture) - confirmed absent from the same D-Bus interface above - so this
@@ -166,9 +179,11 @@ it to `~/src/linux-3-finger-drag` and installs the two udev rule templates above
 does **not** build/install/enable it - that needs Rust (`rustup default stable`) and the
 tool's own sudo-gated installer (`sudo ./install.sh` from that directory), printed as a
 manual step. After that, `~/.config/systemd/user/three-finger-drag.service`'s `ExecStart`
-needs `--device /dev/input/magic-trackpad-bt-event` appended by hand - this machine has
-two touchpads (built-in Synaptics + the Magic Trackpad), and the tool's auto-discovery
-silently picks the wrong one otherwise.
+needs `--device /dev/input/magic-trackpad-event` appended by hand - this machine has two
+touchpads (built-in Synaptics + the Magic Trackpad), and the tool's auto-discovery
+silently picks the wrong one otherwise. That symlink is kept up by `70-magic-trackpad.
+rules` regardless of which connection is active, so the `ExecStart` line itself never
+needs to change between Bluetooth and USB.
 
 Trade-off accepted: exclusively grabbing the trackpad breaks the pre-existing
 `~/.config/libinput-gestures.conf` 3-finger/4-finger swipe-to-action bindings (Present
@@ -181,7 +196,7 @@ If the fork's `61-hotplug.rules` is ever reinstalled verbatim (unscoped, matchin
 service in response to its own synthetic `uinput` clone appearing at every startup,
 causing an infinite restart loop that trips systemd's start-rate limit within seconds.
 The templated version here is scoped to the trackpad's own `ATTRS{uniq}`/vendor/product
-specifically to avoid that.
+(and, for USB, `ENV{ID_USB_INTERFACE_NUM}=="01"`) specifically to avoid that.
 
 ## Toshy
 

@@ -1,13 +1,18 @@
 # Restarts the three-finger-drag systemd user service the instant the Magic
-# Trackpad reconnects over Bluetooth, instead of waiting on systemd's
-# Restart=on-failure retry loop (which can hit the start-rate limit and need
-# a manual `systemctl --user reset-failed` if the reconnect takes a while).
+# Trackpad (re)connects, over Bluetooth or USB, instead of waiting on
+# systemd's Restart=on-failure retry loop (which can hit the start-rate
+# limit and need a manual `systemctl --user reset-failed` if the reconnect
+# takes a while).
 #
-# Scoped to this specific device's ATTRS, not a bare SUBSYSTEM=="input"
-# match: linux-3-finger-drag creates its own synthetic uinput clone of the
-# trackpad on every start, which is itself an "add" event on the input
-# subsystem. An unscoped rule restarts the service in response to its own
-# clone appearing, causing an infinite restart loop that trips systemd's
-# start-rate limit within seconds.
+# Scoped to this specific device's ATTRS (and, for USB,
+# ENV{ID_USB_INTERFACE_NUM} matching only its second HID interface - see
+# 70-magic-trackpad.rules for why that has to be ENV and not KERNELS), not a
+# bare SUBSYSTEM=="input" match: linux-3-finger-drag creates its own
+# synthetic uinput clone of the trackpad on every start, which is itself an
+# "add" event on the input subsystem. An unscoped rule restarts the service
+# in response to its own clone appearing, causing an infinite restart loop
+# that trips systemd's start-rate limit within seconds.
 ACTION=="add", SUBSYSTEM=="input", ATTRS{uniq}=="__TRACKPAD_UNIQ__", ATTRS{id/vendor}=="__TRACKPAD_VENDOR__", ATTRS{id/product}=="__TRACKPAD_PRODUCT__", RUN+="/usr/bin/systemctl --user -M __USER__@.host restart three-finger-drag.service"
 ACTION=="remove", SUBSYSTEM=="input", ATTRS{uniq}=="__TRACKPAD_UNIQ__", ATTRS{id/vendor}=="__TRACKPAD_VENDOR__", ATTRS{id/product}=="__TRACKPAD_PRODUCT__", RUN+="/usr/bin/systemctl --user -M __USER__@.host restart three-finger-drag.service"
+ACTION=="add", SUBSYSTEM=="input", ENV{ID_USB_INTERFACE_NUM}=="01", ATTRS{uniq}=="__TRACKPAD_USB_UNIQ__", ATTRS{id/vendor}=="__TRACKPAD_USB_VENDOR__", ATTRS{id/product}=="__TRACKPAD_USB_PRODUCT__", RUN+="/usr/bin/systemctl --user -M __USER__@.host restart three-finger-drag.service"
+ACTION=="remove", SUBSYSTEM=="input", ENV{ID_USB_INTERFACE_NUM}=="01", ATTRS{uniq}=="__TRACKPAD_USB_UNIQ__", ATTRS{id/vendor}=="__TRACKPAD_USB_VENDOR__", ATTRS{id/product}=="__TRACKPAD_USB_PRODUCT__", RUN+="/usr/bin/systemctl --user -M __USER__@.host restart three-finger-drag.service"
