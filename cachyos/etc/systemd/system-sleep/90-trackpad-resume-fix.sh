@@ -30,6 +30,14 @@ echo -n "serio1" >/sys/bus/serio/drivers/psmouse/bind 2>/dev/null || true
 TARGET_USER="$(loginctl list-sessions --no-legend | awk '$4 == "seat0" { print $3; exit }')"
 if [[ -n "$TARGET_USER" ]]; then
     USER_ID="$(id -u "$TARGET_USER")"
-    sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$USER_ID" \
-        systemctl --user restart toshy-config.service 2>/dev/null || true
+    # user.slice (and the user's own systemd instance with it) is still frozen
+    # at this point in the post-resume hook chain - it only thaws once this
+    # script returns. A synchronous `systemctl --user` call here deadlocks
+    # against that frozen target for ~90s before something breaks the stall,
+    # holding the whole desktop session frozen the entire time. Fire it in the
+    # background and return immediately so the thaw isn't held hostage; the
+    # restart itself completes a few seconds later once things unfreeze.
+    setsid sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$USER_ID" \
+        systemctl --user restart toshy-config.service >/dev/null 2>&1 &
+    disown
 fi

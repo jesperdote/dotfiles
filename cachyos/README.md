@@ -121,6 +121,20 @@ repairs in order: a short `sleep 2` to let the SMBus controller finish resuming,
 owns the `seat0` session (found via `loginctl`, not hardcoded - root can't run `--user`
 systemctl without explicitly pointing `XDG_RUNTIME_DIR` at that user's runtime dir).
 
+**Follow-up bug (found 2026-08-08, fixed same day):** the very first version of this hook
+ran that `systemctl --user restart` synchronously, which froze the entire desktop session
+for ~87 seconds on every single resume. `systemd-sleep` freezes `user.slice` before
+suspend and only thaws it after every `post` hook returns - but `user.slice` contains the
+user's own systemd instance, so a synchronous `systemctl --user` call from inside the hook
+is asking a frozen target to respond before it's been thawed. It doesn't error out cleanly;
+it just stalls until something breaks the deadlock ~87s later, holding the whole session
+(compositor included) frozen the entire time. Confirmed via `journalctl`: `Unit now
+thawed` landed exactly 87s after the hook's `sudo systemctl --user restart` line, on every
+resume since the hook was installed, versus milliseconds before it existed. Fixed by
+backgrounding that call (`setsid ... & disown`) so the hook returns immediately and the
+thaw isn't held hostage; the actual restart completes a few seconds later once the session
+unfreezes on its own.
+
 Only relevant if you're setting up the same physical hardware and running Toshy. If a
 similar dead-touchpad-after-resume symptom shows up without Toshy installed, cause #1
 alone may already be enough - check `/proc/interrupts` for the `rmi4-*.fn12` line before
