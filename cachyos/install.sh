@@ -14,6 +14,13 @@ else
     echo "paru not found - install an AUR helper first, then re-run this script" >&2
 fi
 
+echo "==> colorls gem fix (AUR ruby-colorls caps unicode-display_width <3.0, but pulls in 3.x)"
+if command -v colorls >/dev/null && ! colorls --version >/dev/null 2>&1; then
+    gem install --user-install unicode-display_width -v '2.6.0'
+else
+    echo "    Skipped (colorls not installed, or already working)"
+fi
+
 echo "==> Setting default shell to zsh (switched from fish)"
 if [[ "$SHELL" != "/usr/bin/zsh" ]]; then
     chsh -s /usr/bin/zsh

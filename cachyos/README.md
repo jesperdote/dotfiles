@@ -17,13 +17,14 @@ ships `paru` by default.
 | File | Purpose |
 |---|---|
 | `packages.txt` | Official repo packages (zsh + cachyos-zsh-config + powerlevel10k, docker, docker-compose, docker-buildx, zoxide) |
-| `aur-packages.txt` | AUR packages (visual-studio-code-bin, yay) |
+| `aur-packages.txt` | AUR packages (visual-studio-code-bin, yay, ruby-colorls) |
 | `etc/sudoers.d/90-diagnostics-nopasswd.template` | Passwordless sudo for read-only diagnostic tools (dmesg, journalctl, evtest, libinput) only - no install/modify commands |
 | `etc/sysctl.d/99-nmi-watchdog-enable.conf` | Re-enables the NMI hardlockup watchdog that CachyOS disables by default |
 | `etc/udev/rules.d/70-magic-trackpad.rules.template` | Stable symlink for the Magic Trackpad regardless of Bluetooth vs USB connection |
 | `etc/udev/rules.d/61-hotplug.rules.template` | Restarts the three-finger-drag service the instant the trackpad (re)connects, either connection |
 | `etc/systemd/system-sleep/90-trackpad-resume-fix.sh` | Rebinds the touchpad and restarts Toshy on every resume, fixing a dead-touchpad-after-suspend bug |
 | `zsh/zoxide.zsh` | Appended to `~/.zshrc` - makes `cd` use zoxide's fuzzy directory jumping |
+| `zsh/colorls.zsh` | Appended to `~/.zshrc` - aliases `ls`/`ll`/`la` to `colorls` |
 | `install.sh` | Ties it all together |
 
 See `../ubuntu-vs-arch-cli.md` (repo root) for a general Ubuntu vs Arch/CachyOS CLI
@@ -255,6 +256,16 @@ service in response to its own synthetic `uinput` clone appearing at every start
 causing an infinite restart loop that trips systemd's start-rate limit within seconds.
 The templated version here is scoped to the trackpad's own `ATTRS{uniq}`/vendor/product
 (and, for USB, `ENV{ID_USB_INTERFACE_NUM}=="01"`) specifically to avoid that.
+
+## colorls
+
+`ruby-colorls` (AUR) depends on `ruby-unicode-display_width`, which on Arch resolves to
+`3.x` - but colorls 1.5.0's own gemspec caps that dependency at `< 3.0`, so it fails to
+load out of the box (`Gem::MissingSpecError`). `install.sh` works around this without
+touching the pacman-managed system gem: it installs `unicode-display_width 2.6.0` to the
+user gem path (`gem install --user-install`), which Ruby's dependency resolver then finds
+alongside the newer system one and prefers to satisfy colorls' constraint. Aliases
+(`ls`/`ll`/`la`) live in `zsh/colorls.zsh`.
 
 ## Toshy
 
