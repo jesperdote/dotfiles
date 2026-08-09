@@ -40,6 +40,11 @@ if ! grep -q "zoxide init zsh" ~/.zshrc 2>/dev/null; then
     cat zsh/zoxide.zsh >> ~/.zshrc
 fi
 
+echo "==> colorls aliases in ~/.zshrc"
+if ! grep -q "alias ls='colorls'" ~/.zshrc 2>/dev/null; then
+    cat zsh/colorls.zsh >> ~/.zshrc
+fi
+
 echo "==> Power button locks screen (macOS-style), instead of the sleep/shutdown prompt"
 echo "    32 = PowerDevil::PowerButtonAction::LockScreen (see README.md for the full enum)."
 if [[ "$(kreadconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerButtonAction)" != "32" ]]; then
