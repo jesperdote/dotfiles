@@ -1,0 +1,62 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "palette": {
+    "dir_bg": "#0087af",
+    "git_clean_bg": "#59C9A5",
+    "git_dirty_bg": "#F07623",
+    "claude_bg": "#7C3AED",
+    "fg": "#E0DEF4",
+    "black": "#1a1a2e"
+  },
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "type": "path",
+          "style": "diamond",
+          "leading_diamond": "",
+          "trailing_diamond": "",
+          "background": "p:dir_bg",
+          "foreground": "p:fg",
+          "template": "  {{ .Path }} ",
+          "options": {
+            "style": "folder"
+          }
+        },
+        {
+          "type": "git",
+          "style": "diamond",
+          "leading_diamond": "",
+          "trailing_diamond": "",
+          "background": "p:git_clean_bg",
+          "background_templates": [
+            "{{ if or .Working.Changed .Staging.Changed }}p:git_dirty_bg{{ end }}"
+          ],
+          "foreground": "p:black",
+          "template": " {{ .HEAD }}{{ if .Working.Changed }} {{ end }}{{ if .Staging.Changed }} {{ end }} ",
+          "options": {
+            "fetch_status": true
+          }
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "right",
+      "segments": [
+        {
+          "type": "claude",
+          "style": "diamond",
+          "leading_diamond": "",
+          "trailing_diamond": "",
+          "background": "p:claude_bg",
+          "foreground": "p:fg",
+          "template": " 󰯉 {{ .Model.DisplayName }}   {{ .TokenGauge }} {{ .TokenUsagePercent }}%  $ {{ .FormattedCost }}  5h {{ .FiveHourGauge }} 7d {{ .SevenDayGauge }}{{ if .Worktree }} | wt:{{ .Worktree.Branch }}{{ end }}{{ if .PR }} | PR#{{ .PR.Number }}{{ end }} "
+        }
+      ]
+    }
+  ],
+  "version": 4
+}

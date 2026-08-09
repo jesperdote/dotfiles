@@ -16,8 +16,8 @@ ships `paru` by default.
 
 | File | Purpose |
 |---|---|
-| `packages.txt` | Official repo packages (zsh + cachyos-zsh-config + powerlevel10k, docker, docker-compose, docker-buildx, zoxide) |
-| `aur-packages.txt` | AUR packages (visual-studio-code-bin, yay, ruby-colorls) |
+| `packages.txt` | Official repo packages (zsh + cachyos-zsh-config + powerlevel10k, docker, docker-compose, docker-buildx, zoxide, jq) |
+| `aur-packages.txt` | AUR packages (visual-studio-code-bin, yay, ruby-colorls, oh-my-posh-bin) |
 | `etc/sudoers.d/90-diagnostics-nopasswd.template` | Passwordless sudo for read-only diagnostic tools (dmesg, journalctl, evtest, libinput) only - no install/modify commands |
 | `etc/sysctl.d/99-nmi-watchdog-enable.conf` | Re-enables the NMI hardlockup watchdog that CachyOS disables by default |
 | `etc/udev/rules.d/70-magic-trackpad.rules.template` | Stable symlink for the Magic Trackpad regardless of Bluetooth vs USB connection |
@@ -26,6 +26,7 @@ ships `paru` by default.
 | `zsh/zoxide.zsh` | Appended to `~/.zshrc` - makes `cd` use zoxide's fuzzy directory jumping |
 | `zsh/colorls.zsh` | Appended to `~/.zshrc` - aliases `ls`/`ll`/`la` to `colorls` |
 | `zsh/bluetooth.zsh` | Appended to `~/.zshrc` - `trackpad-connect` alias to force-reconnect the Magic Trackpad |
+| `oh-my-posh/claude.omp.json` | Theme for Claude Code's statusline (dir/git left, model/tokens/cost/rate-limits right) |
 | `install.sh` | Ties it all together |
 
 See `../ubuntu-vs-arch-cli.md` (repo root) for a general Ubuntu vs Arch/CachyOS CLI
@@ -267,6 +268,28 @@ touching the pacman-managed system gem: it installs `unicode-display_width 2.6.0
 user gem path (`gem install --user-install`), which Ruby's dependency resolver then finds
 alongside the newer system one and prefers to satisfy colorls' constraint. Aliases
 (`ls`/`ll`/`la`) live in `zsh/colorls.zsh`.
+
+## Claude Code statusline (oh-my-posh)
+
+Replaced the original bare-bones `~/.claude/statusline-command.sh` (a hand-rolled `[user@host
+dir]` matching the Powerlevel10k prompt colors) with [oh-my-posh](https://ohmyposh.dev)'s
+built-in `claude` segment, which reads Claude Code's session JSON from stdin and can render
+model name, context-window/token usage, session cost, and 5-hour/7-day rate-limit gauges -
+none of which the old script had access to.
+
+- Theme lives at `oh-my-posh/claude.omp.json` in this repo, deployed to
+  `~/.config/oh-my-posh/claude.omp.json`. Left-aligned block shows cwd + git branch (turns
+  orange on uncommitted changes); right-aligned block shows the `claude` segment.
+- The exact template field names (`.TokenGauge`, `.TokenUsagePercent`, `.FormattedCost`,
+  `.FiveHourGauge`/`.SevenDayGauge`, `.Worktree`, `.PR`, etc.) were pulled directly from
+  [oh-my-posh's `claude.go` segment source](https://github.com/JanDeDobbeleer/oh-my-posh/blob/main/src/segments/claude.go)
+  rather than its docs pages, which describe some fields inconsistently across pages.
+- `install.sh` sets `statusLine.command` in `~/.claude/settings.json` via a `jq` merge
+  (hence `jq` now being in `packages.txt`) rather than overwriting the file outright, so any
+  other keys already in that file survive. Idempotency is checked against the exact rendered
+  command string, so it's a no-op once already set.
+- Takes effect on the *next* Claude Code session start - the statusline command for an
+  already-running session was already loaded and won't pick up a `settings.json` change live.
 
 ## Toshy
 

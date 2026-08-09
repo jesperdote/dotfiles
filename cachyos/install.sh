@@ -57,6 +57,30 @@ if ! grep -q "alias trackpad-connect=" ~/.zshrc 2>/dev/null; then
     cat zsh/bluetooth.zsh >> ~/.zshrc
 fi
 
+echo "==> Claude Code statusline (oh-my-posh)"
+OMP_THEME_DEST="$HOME/.config/oh-my-posh/claude.omp.json"
+mkdir -p "$(dirname "$OMP_THEME_DEST")"
+if [[ ! -f "$OMP_THEME_DEST" ]] || ! cmp -s oh-my-posh/claude.omp.json "$OMP_THEME_DEST"; then
+    cp oh-my-posh/claude.omp.json "$OMP_THEME_DEST"
+    echo "    Installed $OMP_THEME_DEST"
+else
+    echo "    Skipped (theme already up to date)"
+fi
+
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+OMP_STATUSLINE_CMD="oh-my-posh claude --config $OMP_THEME_DEST"
+mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
+[[ -f "$CLAUDE_SETTINGS" ]] || echo '{}' > "$CLAUDE_SETTINGS"
+if [[ "$(jq -r '.statusLine.command // empty' "$CLAUDE_SETTINGS")" != "$OMP_STATUSLINE_CMD" ]]; then
+    jq --arg cmd "$OMP_STATUSLINE_CMD" \
+        '.statusLine = {"type": "command", "command": $cmd, "padding": 0}' \
+        "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
+    mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
+    echo "    Set statusLine in $CLAUDE_SETTINGS (takes effect on next Claude Code session)"
+else
+    echo "    Skipped (statusLine already set)"
+fi
+
 echo "==> Power button locks screen (macOS-style), instead of the sleep/shutdown prompt"
 echo "    32 = PowerDevil::PowerButtonAction::LockScreen (see README.md for the full enum)."
 if [[ "$(kreadconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerButtonAction)" != "32" ]]; then
