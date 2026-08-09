@@ -52,6 +52,11 @@ if ! grep -q "alias ls='colorls'" ~/.zshrc 2>/dev/null; then
     cat zsh/colorls.zsh >> ~/.zshrc
 fi
 
+echo "==> Bluetooth aliases in ~/.zshrc"
+if ! grep -q "alias trackpad-connect=" ~/.zshrc 2>/dev/null; then
+    cat zsh/bluetooth.zsh >> ~/.zshrc
+fi
+
 echo "==> Power button locks screen (macOS-style), instead of the sleep/shutdown prompt"
 echo "    32 = PowerDevil::PowerButtonAction::LockScreen (see README.md for the full enum)."
 if [[ "$(kreadconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerButtonAction)" != "32" ]]; then
@@ -230,5 +235,8 @@ cat <<'EOF'
   - Magic Trackpad Bluetooth pairing: won't complete while a charging cable is plugged in
     (falls back to wired USB HID instead). Unplug it, toggle the trackpad's power switch
     off/on to re-enter pairing mode, then `bluetoothctl pair/trust/connect <mac>`.
+  - Magic Trackpad stops reconnecting after a resume/lid-close (already paired/trusted,
+    just shows `Connected: no`): physical nudges (tap, power-cycle, laptop BT radio
+    toggle) are unreliable here - run the `trackpad-connect` alias instead.
   - linux-3-finger-drag build/install/service wiring: see the printed steps above
 EOF

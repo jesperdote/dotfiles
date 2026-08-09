@@ -25,6 +25,7 @@ ships `paru` by default.
 | `etc/systemd/system-sleep/90-trackpad-resume-fix.sh` | Rebinds the touchpad and restarts Toshy on every resume, fixing a dead-touchpad-after-suspend bug |
 | `zsh/zoxide.zsh` | Appended to `~/.zshrc` - makes `cd` use zoxide's fuzzy directory jumping |
 | `zsh/colorls.zsh` | Appended to `~/.zshrc` - aliases `ls`/`ll`/`la` to `colorls` |
+| `zsh/bluetooth.zsh` | Appended to `~/.zshrc` - `trackpad-connect` alias to force-reconnect the Magic Trackpad |
 | `install.sh` | Ties it all together |
 
 See `../ubuntu-vs-arch-cli.md` (repo root) for a general Ubuntu vs Arch/CachyOS CLI
