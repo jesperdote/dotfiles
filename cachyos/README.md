@@ -23,6 +23,7 @@ ships `paru` by default.
 | `etc/udev/rules.d/70-magic-trackpad.rules.template` | Stable symlink for the Magic Trackpad regardless of Bluetooth vs USB connection |
 | `etc/udev/rules.d/61-hotplug.rules.template` | Restarts the three-finger-drag service the instant the trackpad (re)connects, either connection |
 | `etc/systemd/system-sleep/90-trackpad-resume-fix.sh` | Rebinds the touchpad and restarts Toshy on every resume, fixing a dead-touchpad-after-suspend bug |
+| `etc/udev/rules.d/31-zram-swappiness-override.rules` | Dials zram's swappiness back to 100 (from CachyOS's 150), slowing multi-day swap creep |
 | `zsh/zoxide.zsh` | Appended to `~/.zshrc` - makes `cd` use zoxide's fuzzy directory jumping |
 | `zsh/colorls.zsh` | Appended to `~/.zshrc` - aliases `ls`/`ll`/`la` to `colorls` |
 | `zsh/bluetooth.zsh` | Appended to `~/.zshrc` - `trackpad-connect` alias to force-reconnect the Magic Trackpad |
@@ -142,6 +143,39 @@ Only relevant if you're setting up the same physical hardware and running Toshy.
 similar dead-touchpad-after-resume symptom shows up without Toshy installed, cause #1
 alone may already be enough - check `/proc/interrupts` for the `rmi4-*.fn12` line before
 assuming cause #2 also applies.
+
+## zram swappiness override (multi-day suspend-only uptime creep)
+
+This machine tends to run for 3+ days at a stretch on suspend-only uptime (lid close/open,
+never a reboot), and swap usage climbs steadily over that time - previously just annoying
+(audio/mouse lag once it built up), but on 2026-08-10 it escalated to an actual shutdown
+hang: the machine had 12.4G memory / 9G swap peaked by the time a restart was attempted,
+and the shutdown sequence stalled mid-unmount (likely the Docker overlayfs, under that
+much swap pressure) and never completed - confirmed via `journalctl -b -2`, whose log
+just stops after `Unmounted /home` with no further entries, requiring a forced power-off.
+
+The swap creep itself traces back to `vm.swappiness`. CachyOS's own
+`/usr/lib/sysctl.d/70-cachyos-settings.conf` sets a sane general default of `100`, but
+`/usr/lib/udev/rules.d/30-zram.rules` re-applies `vm.swappiness=150` on every zram device
+init specifically - a deliberate, documented zram tuning choice (compression is cheap, so
+prefer swapping anonymous pages over evicting page cache), not a bug. That's reasonable
+for typical uptimes, but combined with this machine's habit of never rebooting, it lets
+idle anonymous pages accumulate in swap for days with nothing to reclaim them.
+
+**Fix**: `etc/udev/rules.d/31-zram-swappiness-override.rules`, installed to
+`/etc/udev/rules.d/` by `install.sh`. Matches the same `ACTION=="change", KERNEL=="zram0"`
+trigger as CachyOS's rule, but sorts after it (`31-` vs `30-`) so its
+`SYSCTL{vm.swappiness}="100"` wins - dialing it back to CachyOS's own general default
+rather than an arbitrary number. A plain `sysctl.d` file (the approach used for the NMI
+watchdog fix below) doesn't work here since the zram udev rule reapplies its value after
+early-boot sysctl processing already ran - confirmed empirically, `/proc/sys/vm/swappiness`
+read `150` at runtime despite the `70-cachyos-settings.conf` default being `100`.
+
+Doesn't fully solve the underlying "never reboots" habit, but should slow the creep
+meaningfully. If swap creep causes problems again despite this, the remaining lever is an
+actual periodic reboot (or `zramctl --reset`/`swapoff -a; swapon -a` to manually reclaim),
+since idle pages parked in swap for days aren't something any swappiness value fully
+prevents.
 
 ## Freeze diagnostics: kernel lockup watchdogs
 

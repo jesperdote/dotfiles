@@ -1,0 +1,11 @@
+# Overrides CachyOS's own 30-zram.rules, which re-applies vm.swappiness=150 on
+# every zram init (a deliberate zram-specific tuning choice - fast compression
+# means it's cheaper to swap than to evict page cache). On this machine, which
+# routinely goes 3+ days on suspend-only uptime without a reboot, that high a
+# swappiness lets swap creep to multiple GB over those days (idle anonymous
+# pages that are pushed out once and never reclaimed), causing lag and, on
+# 2026-08-10, an actual shutdown stall (unmount hung under swap pressure,
+# needed a forced power-off). Dials it back to 100 - CachyOS's own general
+# sysctl.d default (70-cachyos-settings.conf), just currently overridden
+# upward for zram specifically. See README.md for the full incident.
+ACTION=="change", KERNEL=="zram0", ATTR{initstate}=="1", SYSCTL{vm.swappiness}="100"

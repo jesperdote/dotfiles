@@ -123,6 +123,22 @@ else
     echo "    Skipped (already up to date)"
 fi
 
+echo "==> zram swappiness override (multi-day suspend-only uptime creep)"
+echo "    CachyOS's own zram udev rule sets vm.swappiness=150 on every zram init,"
+echo "    which lets swap creep to multiple GB over days of suspend-only uptime on"
+echo "    this machine, causing lag and (once) a shutdown stall. Dials it back to"
+echo "    100 - CachyOS's own general sysctl.d default. See README.md."
+ZRAM_RULE_DEST=/etc/udev/rules.d/31-zram-swappiness-override.rules
+ZRAM_RULE_SRC=etc/udev/rules.d/31-zram-swappiness-override.rules
+if [[ ! -f "$ZRAM_RULE_DEST" ]] || ! cmp -s "$ZRAM_RULE_SRC" "$ZRAM_RULE_DEST"; then
+    sudo cp "$ZRAM_RULE_SRC" "$ZRAM_RULE_DEST"
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger --action=change --name-match=/dev/zram0
+    echo "    Installed and applied - current swappiness: $(cat /proc/sys/vm/swappiness)"
+else
+    echo "    Skipped (already up to date)"
+fi
+
 echo "==> Freeze diagnostics: re-enabling kernel lockup watchdogs"
 echo "    nowatchdog (kernel cmdline) and kernel.nmi_watchdog=0 (CachyOS's own sysctl"
 echo "    default) both disable lockup detection - either alone is enough to leave a"
