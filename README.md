@@ -7,9 +7,10 @@ Personal system-setup/dotfiles repo, one folder per machine/OS.
 | Folder | Machine | OS |
 |---|---|---|
 | [`cachyos/`](cachyos/) | ThinkPad T14 Gen2 | CachyOS (Arch-based) |
+| [`vps/`](vps/) | Homelab VPS ("caljerry") | Ubuntu 26.04 LTS |
 
-More machines (Ubuntu/Debian, macOS) to be added as their own top-level folders, each
-with its own `install.sh`/README following the same pattern as `cachyos/`.
+More machines (macOS, etc.) to be added as their own top-level folders, each with its
+own `install.sh`/README following the same pattern.
 
 ## Other
 

@@ -57,3 +57,20 @@ before editing anything in that folder:
   deliberately **not** run automatically - that installer has intentional "type this
   secret code to confirm you read this" prompts meant to block unattended installs.
   Don't try to script around them; leave that step manual.
+
+## vps/ specifics
+
+See `vps/README.md` for full rationale. Key points a future session should know before
+editing anything in that folder:
+
+- Installs `cloudflared` as a **native systemd service** (via Cloudflare's own apt
+  repo), not a Docker container - deliberately kept separate from the unrelated
+  `observability` repo's Docker Compose stack that also runs on this VPS.
+- `CLOUDFLARE_TUNNEL_TOKEN` is passed as an env var at install time only - never
+  written to disk by the script or committed to this repo.
+- Creating the tunnel itself (Cloudflare Zero Trust dashboard) is a manual, one-time
+  step this script can't automate - same category as Toshy's install in `cachyos/`.
+- This is a **second, separate tunnel** dedicated to the VPS - it does not reuse or
+  share anything with the BananaPi's existing tunnel (tunnels are 1:1 with their
+  `cloudflared` daemon). The BananaPi's tunnel/front-proxy setup lives in the separate
+  `proj` repo (`front/`), not here; the VPS's counterpart is `proj/front-vps/`.
