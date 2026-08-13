@@ -19,7 +19,10 @@ Idempotent - safe to re-run. Each step checks current state before changing anyt
 
 | File | Purpose |
 |---|---|
-| `install.sh` | Installs cloudflared via Cloudflare's apt repo, registers it as a systemd service |
+| `install.sh` | Installs cloudflared, registers it as a systemd service, and brings up `proj/front-vps` + `proj/placeholder` |
+
+Assumes Docker is already installed on this VPS (it is - both Jenkins and the
+`observability` stack already depend on it), so this script doesn't install it.
 
 ## Cloudflare Tunnel: native systemd service, not a Docker container
 
@@ -42,6 +45,21 @@ apt repo - matching how the BananaPi (the other homelab host) already runs its
 This is a **second, separate tunnel** dedicated to this VPS - it does not reuse or
 share anything with the BananaPi's existing tunnel/token (tunnels are 1:1 with their
 `cloudflared` daemon).
+
+## front-vps + placeholder (proj repo)
+
+`install.sh` also clones/pulls the separate `proj` repo (`git@github.com:klept-lab/proj.git`)
+to `~/proj` and brings up two of its services with `docker compose up -d`:
+
+- **`front-vps/`** - the nginx reverse proxy this tunnel points at (`localhost:8081`),
+  the VPS-side counterpart to the BananaPi's `front/`. See `proj/front-vps/CLAUDE.md`
+  for routing details.
+- **`placeholder/`** - a stub `nginx:alpine-slim` backend on port 8020, standing in for
+  a real service until one exists. Safe to remove once `front-vps/nginx/default.conf`
+  routes to something real instead.
+
+Both are defined in `proj`, not here, since they're application-level Docker Compose
+services rather than host system setup - this script just makes sure they're running.
 
 ## Manual steps not covered by this script
 

@@ -34,4 +34,25 @@ EOF
     sudo cloudflared service install "$CLOUDFLARE_TUNNEL_TOKEN"
 fi
 
-echo "==> Done. Check status with: systemctl status cloudflared"
+echo "==> Cloning/updating proj repo (front-vps nginx proxy + placeholder backend)"
+if ! command -v docker >/dev/null; then
+    echo "    docker not found - install it first (already expected to be present here" >&2
+    echo "    since Jenkins and the observability stack both depend on it)." >&2
+    exit 1
+fi
+PROJ_DIR="$HOME/proj"
+if [[ -d "$PROJ_DIR/.git" ]]; then
+    git -C "$PROJ_DIR" pull
+else
+    git clone git@github.com:klept-lab/proj.git "$PROJ_DIR"
+fi
+
+echo "==> Starting front-vps (nginx reverse proxy, port 8081)"
+(cd "$PROJ_DIR/front-vps" && docker compose up -d)
+
+echo "==> Starting placeholder backend (port 8020)"
+(cd "$PROJ_DIR/placeholder" && docker compose up -d)
+
+echo "==> Done. Check status with:"
+echo "        systemctl status cloudflared"
+echo "        docker ps --filter name=nginx-vps --filter name=placeholder"
