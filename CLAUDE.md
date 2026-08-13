@@ -11,11 +11,12 @@ snippets.
 
 ## Structure
 
-- One folder per machine, named after its OS (currently just `cachyos/`, for a
-  ThinkPad T14 Gen2 running CachyOS). When adding a new machine, create a new top-level
-  folder following the same internal pattern: an idempotent `install.sh` entry point,
-  package lists as plain text files, and a README documenting machine-specific
-  rationale (hardware quirks, why a given fix exists, what's deliberately left manual).
+- One folder per machine: `cachyos/` (ThinkPad T14 Gen2 running CachyOS) and `vps/`
+  (homelab VPS, "caljerry", Ubuntu 26.04 LTS). When adding a new machine, create a new
+  top-level folder following the same internal pattern: an idempotent `install.sh`
+  entry point, package lists as plain text files where applicable, and a README
+  documenting machine-specific rationale (hardware quirks, why a given fix exists,
+  what's deliberately left manual).
 - Folders are independent - nothing is shared between them. Don't introduce cross-folder
   imports/sourcing; if logic is genuinely common across OSes (e.g. zoxide setup), it's
   fine to duplicate the small snippet in each folder rather than build shared tooling,
