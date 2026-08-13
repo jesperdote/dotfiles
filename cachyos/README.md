@@ -27,6 +27,8 @@ ships `paru` by default.
 | `zsh/zoxide.zsh` | Appended to `~/.zshrc` - makes `cd` use zoxide's fuzzy directory jumping |
 | `zsh/colorls.zsh` | Appended to `~/.zshrc` - aliases `ls`/`ll`/`la` to `colorls` |
 | `zsh/bluetooth.zsh` | Appended to `~/.zshrc` - `trackpad-connect` alias to force-reconnect the Magic Trackpad |
+| `zsh/omz-update-disable.zsh` | Appended to `~/.zshenv` - disables oh-my-zsh's git-based auto-updater (pacman-managed here, not a git clone) |
+| `zsh/omz-update-wrapper.zsh` | Appended to `~/.zshrc` - redirects the `omz update` command itself to pacman |
 | `oh-my-posh/claude.omp.json` | Theme for Claude Code's statusline (dir/git left, model/tokens/cost/rate-limits right) |
 | `install.sh` | Ties it all together |
 
@@ -45,6 +47,19 @@ removed) since `/etc/shells` still lists it; remove with `sudo pacman -R fish` i
 The full `~/.zshrc` and `~/.p10k.zsh` aren't backed up here since they're partly
 machine-generated (`p10k configure` regenerates `.p10k.zsh` interactively) - only the
 zoxide line that was manually added is captured in `zsh/zoxide.zsh`.
+
+Because oh-my-zsh here comes from the `oh-my-zsh-git` pacman package (into
+`/usr/share/oh-my-zsh`, root-owned, no `.git` dir) rather than the usual curl-script git
+clone, its built-in auto-updater doesn't work - it assumes a writable git checkout.
+`zsh/omz-update-disable.zsh` silences the automatic check, but it has to be set via
+`zstyle` *before* `oh-my-zsh.sh` is sourced, which happens inside
+`cachyos-config.zsh` partway through `~/.zshrc` - a plain append to the end of
+`~/.zshrc` (the pattern every other snippet here uses) would run too late. It's
+appended to `~/.zshenv` instead, which zsh always sources before `~/.zshrc`.
+`zsh/omz-update-wrapper.zsh` handles the other half - it redirects manually typed
+`omz update` to `sudo pacman -Syu oh-my-zsh-git` instead of letting it fail on git
+commands - and *is* just appended to `~/.zshrc` like the rest, since it only needs to
+run after `omz` itself is defined.
 
 ## Power button locks screen (macOS-style)
 

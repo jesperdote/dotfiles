@@ -57,6 +57,14 @@ if ! grep -q "alias trackpad-connect=" ~/.zshrc 2>/dev/null; then
     cat zsh/bluetooth.zsh >> ~/.zshrc
 fi
 
+echo "==> oh-my-zsh update fix (pacman-managed here, not a git clone - see README.md)"
+if ! grep -q "omz:update' mode disabled" ~/.zshenv 2>/dev/null; then
+    cat zsh/omz-update-disable.zsh >> ~/.zshenv
+fi
+if ! grep -q "_omz_orig" ~/.zshrc 2>/dev/null; then
+    cat zsh/omz-update-wrapper.zsh >> ~/.zshrc
+fi
+
 echo "==> Claude Code statusline (oh-my-posh)"
 OMP_THEME_DEST="$HOME/.config/oh-my-posh/claude.omp.json"
 mkdir -p "$(dirname "$OMP_THEME_DEST")"
