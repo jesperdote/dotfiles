@@ -47,10 +47,17 @@ else
     git clone git@github.com:klept-lab/proj.git "$PROJ_DIR"
 fi
 
-echo "==> Starting front-vps (nginx reverse proxy, port 8081)"
+echo "==> Creating vps-internal Docker network (shared by front-vps and its backends)"
+if docker network inspect vps-internal >/dev/null 2>&1; then
+    echo "    Skipped (already exists)"
+else
+    docker network create vps-internal
+fi
+
+echo "==> Starting front-vps (nginx reverse proxy, loopback-only on 127.0.0.1:8081)"
 (cd "$PROJ_DIR/front-vps" && docker compose up -d)
 
-echo "==> Starting placeholder backend (port 8020)"
+echo "==> Starting placeholder backend (no host port - reachable via vps-internal only)"
 (cd "$PROJ_DIR/placeholder" && docker compose up -d)
 
 echo "==> Done. Check status with:"

@@ -49,17 +49,27 @@ share anything with the BananaPi's existing tunnel/token (tunnels are 1:1 with t
 ## front-vps + placeholder (proj repo)
 
 `install.sh` also clones/pulls the separate `proj` repo (`git@github.com:klept-lab/proj.git`)
-to `~/proj` and brings up two of its services with `docker compose up -d`:
+to `~/proj`, creates a shared `vps-internal` Docker network, and brings up two of its
+services with `docker compose up -d`:
 
-- **`front-vps/`** - the nginx reverse proxy this tunnel points at (`localhost:8081`),
-  the VPS-side counterpart to the BananaPi's `front/`. See `proj/front-vps/CLAUDE.md`
-  for routing details.
-- **`placeholder/`** - a stub `nginx:alpine-slim` backend on port 8020, standing in for
-  a real service until one exists. Safe to remove once `front-vps/nginx/default.conf`
-  routes to something real instead.
+- **`front-vps/`** - the nginx reverse proxy this tunnel points at (`localhost:8081`,
+  loopback-only), the VPS-side counterpart to the BananaPi's `front/`. See
+  `proj/front-vps/CLAUDE.md` for routing details.
+- **`placeholder/`** - a stub `nginx:alpine-slim` backend, standing in for a real
+  service until one exists. Safe to remove once `front-vps/nginx/default.conf` routes
+  to something real instead.
 
 Both are defined in `proj`, not here, since they're application-level Docker Compose
 services rather than host system setup - this script just makes sure they're running.
+
+**Security note (2026-08-19)**: `front-vps` and its backends (`placeholder`,
+`infdxeta-net`) all join the `vps-internal` Docker network and communicate by container
+name - none of the backends publish a host port at all, and `front-vps` itself is bound
+`127.0.0.1` only. Earlier they published on `0.0.0.0` (Docker's default when no bind
+address is given), which made them directly reachable from the public internet on their
+raw ports, completely bypassing Cloudflare's edge - confirmed and fixed live. Any new
+backend added behind `front-vps` should follow the same pattern (join `vps-internal`,
+no published port) rather than reintroducing this.
 
 ## Manual steps not covered by this script
 
